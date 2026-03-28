@@ -1,0 +1,67 @@
+{
+  "cartservice": {
+    "p95_latency_ms_mean": 4.6877,
+    "p95_latency_ms_std": 0.4364,
+    "error_rate_pct_mean": 0.0,
+    "error_rate_pct_std": 0.0,
+    "cpu_cores_mean": 0.007561,
+    "cpu_cores_std": 0.001,
+    "memory_mb_mean": 84.17,
+    "memory_mb_std": 5.0,
+    "recovery_threshold_ms": 7.0316,
+    "n_real_samples": 53,
+    "source": "live_prometheus_iqr_clipped"
+  },
+  "recommendationservice": {
+    "p95_latency_ms_mean": 4.8694,
+    "p95_latency_ms_std": 0.4817,
+    "error_rate_pct_mean": 0.0,
+    "error_rate_pct_std": 0.0,
+    "cpu_cores_mean": 0.010118,
+    "cpu_cores_std": 0.002,
+    "memory_mb_mean": 76.48,
+    "memory_mb_std": 5.0,
+    "recovery_threshold_ms": 7.3041,
+    "n_real_samples": 53,
+    "source": "live_prometheus_iqr_clipped"
+  },
+  "adservice": {
+    "p95_latency_ms_mean": 4.3175,
+    "p95_latency_ms_std": 0.3463,
+    "error_rate_pct_mean": 0.0,
+    "error_rate_pct_std": 0.0,
+    "cpu_cores_mean": 0.005237,
+    "cpu_cores_std": 0.001,
+    "memory_mb_mean": 133.02,
+    "memory_mb_std": 8.0,
+    "recovery_threshold_ms": 6.4762,
+    "n_real_samples": 54,
+    "source": "live_prometheus_iqr_clipped"
+  },
+  "productcatalogservice": {
+    "p95_latency_ms_mean": 0.4902,
+    "p95_latency_ms_std": 0.0402,
+    "error_rate_pct_mean": 0.0,
+    "error_rate_pct_std": 0.0,
+    "cpu_cores_mean": 0.012963,
+    "cpu_cores_std": 0.002,
+    "memory_mb_mean": 45.03,
+    "memory_mb_std": 3.0,
+    "recovery_threshold_ms": 0.7353,
+    "n_real_samples": 53,
+    "source": "live_prometheus_iqr_clipped"
+  },
+  "checkoutservice": {
+    "p95_latency_ms_mean": 36.9178,
+    "p95_latency_ms_std": 15.2018,
+    "error_rate_pct_mean": 0.0,
+    "error_rate_pct_std": 0.0,
+    "cpu_cores_mean": 0.004032,
+    "cpu_cores_std": 0.001,
+    "memory_mb_mean": 46.7,
+    "memory_mb_std": 4.0,
+    "recovery_threshold_ms": 55.3768,
+    "n_real_samples": 53,
+    "source": "live_prometheus_iqr_clipped"
+  }
+}

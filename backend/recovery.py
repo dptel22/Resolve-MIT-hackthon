@@ -1,19 +1,48 @@
 import time
-import subprocess
+import os
 import uuid
+import logging
+
+try:
+    from kubernetes import client, config
+    HAS_K8S = True
+except ImportError:
+    HAS_K8S = False
+    
+logger = logging.getLogger(__name__)
 
 def restart_pod(service_name: str) -> tuple:
     """
-        pod_name string that was deleted
-        timestamp float
+    Deletes exactly 1 pod matching the service_name in the 'boutique' namespace.
+    Returns:
+        pod_name: string that was deleted
+        timestamp: float
     """
-    # MOCK Logic: Since we don't have access to the actual Kubernetes cluster
-    # or the friend's kubeconfig, we simulate a successful pod identification and termination.
+    kubeconfig_path = os.path.join(os.path.dirname(__file__), "kubeconfig.yaml")
     
-    pod_id = str(uuid.uuid4())[:8]
-    pod_name = f"{service_name}-{pod_id}"
-    timestamp = time.time()
-    
-    print(f"[RECOVERY] Mock: Sending delete request for pod {pod_name} in namespace boutique.")
-    
-    return pod_name, timestamp
+    if HAS_K8S and os.path.exists(kubeconfig_path):
+        try:
+            config.load_kube_config(config_file=kubeconfig_path)
+            v1 = client.CoreV1Api()
+            
+            pods = v1.list_namespaced_pod(namespace="boutique", label_selector=f"app={service_name}")
+            if not pods.items:
+                raise Exception(f"No pods found for service {service_name} with label app={service_name}")
+                
+            pod_to_delete = pods.items[0].metadata.name
+            
+            print(f"[RECOVERY] Deleting pod {pod_to_delete} in namespace boutique.")
+            v1.delete_namespaced_pod(name=pod_to_delete, namespace="boutique")
+            
+            return pod_to_delete, time.time()
+        except Exception as e:
+            print(f"[RECOVERY] Kubernetes client error: {e}")
+            raise e
+    else:
+        # Fallback to mock behavior if kubeconfig is missing or library is unavailable
+        pod_id = str(uuid.uuid4())[:8]
+        pod_name = f"{service_name}-{pod_id}"
+        timestamp = time.time()
+        
+        print(f"[RECOVERY] Mock mode: Simulated delete request for pod {pod_name} in namespace boutique (kubeconfig not found).")
+        return pod_name, timestamp

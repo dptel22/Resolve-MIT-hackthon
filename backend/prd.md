@@ -277,7 +277,7 @@ Every incident created by /api/recover follows this structure:
   ANOMALY_VOTES_REQUIRED   4                       Votes needed out of
                                                    VOTE_WINDOW to trigger
   ------------------------ ----------------------- -------------------------
-
+uvicorn main:app \--reload \--host 0.0.0.0 \--port 8000
 **9. Failure Modes & Fallbacks**
 
   -------------------------- --------------------------------------------
@@ -334,7 +334,7 @@ Install dependencies:
 
 Start the server:
 
-> uvicorn main:app \--reload \--host 0.0.0.0 \--port 8000
+> 
 
 Verify it is running:
 

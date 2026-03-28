@@ -24,7 +24,7 @@ function ts() {
 }
 
 const makeInitialServices = () => Object.fromEntries(
-  SERVICES.map(s => [s, { votes: [], confidence: 0, is_anomaly: false, features: { p95_latency: 0 }, _status: 'HEALTHY' }])
+  SERVICES.map(s => [s, { votes: [], confidence: 0, is_anomaly: false, features: { p95_latency_ms: 0 }, _status: 'HEALTHY' }])
 );
 
 export default function App() {
@@ -121,7 +121,7 @@ export default function App() {
         setHistoryMap(prev => {
           const next = { ...prev };
           Object.entries(data).forEach(([svc, svcState]) => {
-            const lat  = svcState.features?.p95_latency ?? 0;
+            const lat  = svcState.features?.p95_latency_ms ?? 0;
             const anom = svcState.is_anomaly;
             const status = anom ? 'anomaly' : 'normal';
             const entry = { latency: lat, status };

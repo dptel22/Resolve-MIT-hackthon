@@ -13,6 +13,7 @@ import decision
 import recovery
 import verifier
 from chaos.chaos_engine import inject_chaos_safe, cleanup_all
+from service_catalog import get_supported_services
 
 models.Base.metadata.create_all(bind=database.engine)
 
@@ -26,21 +27,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# The 5 explicit services chosen for the dashboard tracking
-SERVICES = ["cartservice", "paymentservice", "recommendationservice", "shippingservice", "productcatalogservice"]
+SERVICES = get_supported_services()
 
 # Independent States!
 state = {
-    "warmup_done": False,
+    "warmup_done": True, # True by default as baselines are pre-loaded by detector
     "manual_mode": False,
     "cooldowns": {},
     "services": {
         svc: {
-            "baseline_avg": 100.0,
             "votes": [],
             "confidence": 0.0,
             "is_anomaly": False,
-            "features": {"p95_latency": 0.0, "error_rate": 0.0, "cpu": 0.0, "memory": 0.0}
+            "features": {"p95_latency_ms": 0.0, "error_rate_pct": 0.0, "cpu_cores": 0.0, "memory_mb": 0.0}
         } for svc in SERVICES
     }
 }
@@ -58,30 +57,14 @@ def read_health():
 
 @app.get("/api/services")
 def list_services():
-    """Returns the exact list of the 5 tracked services for the frontend."""
+    """Returns the exact list of tracked services for the frontend."""
     return {"services": SERVICES}
 
-async def perform_warmup():
-    print("[WARMUP] Starting 10-second warm-up phase.")
-    await asyncio.sleep(10) 
-    
-    for svc in SERVICES:
-        baselines = []
-        for _ in range(5):
-            features = prometheus_client.fetch_metrics(svc)
-            baselines.append(features.get("p95_latency", 0))
-        
-        state["services"][svc]["baseline_avg"] = sum(baselines) / len(baselines) if baselines else 100.0
-        
-    state["warmup_done"] = True
-    print(f"[WARMUP] Completed.")
 
 @app.post("/api/warmup/start")
-def start_warmup(background_tasks: BackgroundTasks):
-    if state["warmup_done"]:
-        return {"message": "Warmup already completed"}
-    background_tasks.add_task(perform_warmup)
-    return {"message": "Warm-up started"}
+def start_warmup():
+    state["warmup_done"] = True
+    return {"message": "Warm-up skipped (using pre-trained baseline stats)"}
 
 @app.get("/api/warmup/status")
 def warmup_status():
@@ -90,27 +73,24 @@ def warmup_status():
 @app.post("/api/detect/run")
 def run_detect():
     """
-    Called by the dashboard loop. Overrides global polling and individually returns metrics
-    for all 5 services!
+    Called by the dashboard loop. Overrides global polling and individually returns metrics.
     """
     if not state["warmup_done"]:
         return {"error": "Wait until warmup is completed"}
     if state["manual_mode"]:
         return {"error": "System frozen in manual mode"}
         
-    # Poll all 5 services!
     for svc in SERVICES:
         svc_state = state["services"][svc]
         features = prometheus_client.fetch_metrics(svc)
         
-        confidence, new_votes, is_anomaly = detector.run_detector(features, svc_state["votes"])
+        det_result = detector.run_detection(features, svc_state["votes"])
         
-        svc_state["votes"] = new_votes
-        svc_state["confidence"] = confidence
-        svc_state["is_anomaly"] = is_anomaly
+        # vote buffer is modified in place, but we can assign confidence and anomaly state
+        svc_state["confidence"] = det_result["confidence"]
+        svc_state["is_anomaly"] = det_result["triggered"]
         svc_state["features"] = features
     
-    # Returns the mass dictionary of all 5 services to generate cards!
     return state["services"]
 
 @app.post("/api/recover")
@@ -123,20 +103,34 @@ def recover_service(service_name: str, db: Session = Depends(get_db)):
         
     svc_state = state["services"][service_name]
     
-    should_act, reason = decision.evaluate_decision(
-        svc_state["confidence"], 
-        svc_state["votes"], 
-        service_name, 
-        state["cooldowns"]
+    # Delegate to external Decision Engine
+    res = decision.make_decision(
+        service=service_name,
+        confidence=svc_state["confidence"],
+        triggered=svc_state["is_anomaly"],
+        metrics=svc_state["features"],
+        vote_buffer=svc_state["votes"]
     )
     
-    if not should_act:
-        return {"status": "skipped", "reason": reason}
+    if res.action != "RECOVER":
+        return {"status": "skipped", "reason": res.reason}
         
     pod_deleted, timestamp = recovery.restart_pod(service_name)
-    state["cooldowns"][service_name] = timestamp
     
-    status = verifier.verify_recovery(pod_deleted, svc_state["baseline_avg"])
+    baseline = detector.get_baseline(service_name)
+    baseline_avg = baseline["p95_latency_ms_mean"]
+    
+    status = verifier.verify_recovery(pod_deleted, baseline_avg)
+    
+    # Record action in decision state DB for cooldown logic
+    try:
+        decision.record_action(
+            service=service_name,
+            severity_label=res.severity_label,
+            verification_status=status
+        )
+    except Exception as e:
+        print(f"Warning: Failed to log adaptive cooldown record: {e}")
     
     if status == "FAILED":
         state["manual_mode"] = True
@@ -144,7 +138,7 @@ def recover_service(service_name: str, db: Session = Depends(get_db)):
     new_incident = models.Incident(
         service=service_name,
         confidence=svc_state["confidence"],
-        votes=svc_state["votes"],
+        votes=list(svc_state["votes"]), # Make a copy
         action=f"restarted 1 pod ({pod_deleted})",
         pod_name=pod_deleted,
         status=status,
@@ -177,7 +171,6 @@ def trigger_chaos(service: str, scenario: str):
     if not result["success"]:
         raise HTTPException(status_code=400, detail=result["error"])
         
-    # Simulate an immediate spike in the backend state for the dashboard demo!
     if service in state["services"]:
         state["services"][service]["is_anomaly"] = True
         state["services"][service]["confidence"] = 99.0

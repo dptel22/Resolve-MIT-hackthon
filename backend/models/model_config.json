@@ -1,0 +1,45 @@
+{
+  "features": [
+    "p95_latency_ms",
+    "error_rate_pct",
+    "cpu_cores",
+    "memory_mb"
+  ],
+  "window_size": 5,
+  "anomaly_threshold_votes": 4,
+  "confidence_threshold_pct": 80.0,
+  "trigger_logic": "votes >= anomaly_threshold_votes",
+  "zscore_threshold": 3.0,
+  "recovery_latency_multiplier": 1.5,
+  "scaler_type": "RobustScaler",
+  "best_hyperparams": {
+    "contamination": 0.05,
+    "n_estimators": 200,
+    "max_samples": "auto"
+  },
+  "non_critical_services": [
+    "cartservice",
+    "recommendationservice",
+    "adservice",
+    "productcatalogservice"
+  ],
+  "critical_services": [
+    "checkoutservice"
+  ],
+  "auto_remediable_chaos_scenarios": [
+    "pod_kill",
+    "cpu_stress",
+    "network_latency",
+    "memory_stress",
+    "packet_loss"
+  ],
+  "safety_only_chaos_scenarios": [
+    "critical_pod_kill"
+  ],
+  "preprocessing_notes": [
+    "IQR clip multiplier=2.0 applied per service per feature",
+    "Variance injection applied to services with CV < 5%",
+    "error_rate_pct is 0.0 for all healthy baseline rows (correct)",
+    "Chaos error rates are absolute values not multipliers"
+  ]
+}
